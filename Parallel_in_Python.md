@@ -1,8 +1,13 @@
+#! https://zhuanlan.zhihu.com/p/259337581
 # Parallel in Python -- practical multiprocessing
 
 [Official website](https://docs.python.org/zh-cn/3/library/multiprocessing.html)
 
-# 概述部分
+# 快速上手
+
+如果你想快速地通过例子去理解、仿写，那么只用看**标有三颗星**的部分（及其子部分）就可以
+
+# 概述 
 
 ## 在进程之间交换对象
 
@@ -53,10 +58,14 @@ if __name__ == '__main__':
 
 ```python
 from multiprocessing import Process, Lock
+
 def f(l, i):
     l.acquire()
     try:
-        print('hello world', i)
+        cc = time.time()
+        value = datetime.datetime.fromtimestamp(cc).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+        print('hello world', i, value)
+        time.sleep(1)
     finally:
         l.release()
 
@@ -70,26 +79,39 @@ if __name__ == '__main__':
 """ 
 Output:
 -------------
-hello world 0
-hello world 1
-hello world 2
-hello world 3
-hello world 4
-hello world 5
-hello world 6
-hello world 7
-hello world 8
-hello world 9
+hello world 0 2020-09-25 15:49:42
+
+hello world 1 2020-09-25 15:49:43
+
+hello world 2 2020-09-25 15:49:44
+
+hello world 3 2020-09-25 15:49:45
+
+hello world 4 2020-09-25 15:49:46
+
+hello world 5 2020-09-25 15:49:47
+
+hello world 6 2020-09-25 15:49:48
+
+hello world 7 2020-09-25 15:49:49
+
+hello world 8 2020-09-25 15:49:50
+
+hello world 9 2020-09-25 15:49:52
 """
 ```
 **不使用锁的情况下，来自于多进程的输出很容易产生混淆。**
+
 ```python
 from multiprocessing import Process, Lock
 import time
 
 def f(i):
     try:
-        print('hello world', i)
+        cc = time.time()
+        value = datetime.datetime.fromtimestamp(cc).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+        print('hello world', i, value)
+        time.sleep(1)
     except:
         print("not work")
 
@@ -102,20 +124,29 @@ if __name__ == '__main__':
 """
 Output:
 ------------------------------------
-hello world hello world0 hello world
-1
- 2hello world
- 3hello world
- 4hello world
- 5hello world
- hello world6 
-7hello world
- 8hello world
- 9
+hello world 0hello world  hello world12020-09-25 15:51:05
+  
+22020-09-25 15:51:05
+hello world 
+ 2020-09-25 15:51:05
+
+3hello world  2020-09-25 15:51:05
+
+4hello world  2020-09-25 15:51:05
+5
+hello world  2020-09-25 15:51:05
+6 
+hello world2020-09-25 15:51:05
+ 
+7 hello world 2020-09-25 15:51:05
+8
+ hello world2020-09-25 15:51:05
+ 
+9 2020-09-25 15:51:05
 """
 ```
 
-## 使用工作进程 Pool
+## 使用工作进程 Pool （***）
 `Pool` 类表示一个工作进程池，它具有允许以不同方式将任务分配到工作进程的方法。例如
 
 ```python
@@ -185,10 +216,11 @@ Now the pool is closed and no longer available
 """
 ```
 ## 小结
-靠谱的还是用 `pool.apply_async` 应对 `for loop`, 如果是直接对一个数组的话，可以考虑用 `pool.map()` 
+**靠谱的还是用 `pool.apply_async` 应对 `for loop`, 如果是直接对一个数组的话，可以考虑用 `pool.map()`**
 
 **请注意，进程池的方法只能由创建它的进程使用。**  
 <font color=#F17B44 size=2> 注解：这个包中的功能要求子进程可以导入`__main__`模块。具体请参考[编程指导](https://docs.python.org/zh-cn/3/library/multiprocessing.html#multiprocessing-programming)。这意味着一些示例在交互式解释器中不起作用 比如: </font>
+
 ```python
 >>> from multiprocessing import Pool
 >>> p = Pool(5)
@@ -215,11 +247,13 @@ AttributeError: 'module' object has no attribute 'f'
 - 你可以在子类中重载此方法。标准 run() 方法调用传递给对象构造函数的可调用对象作为目标参数（如果有），分别从 args 和 kwargs 参数中获取顺序和关键字参数。
 
 **start()**
+
 - 启动进程活动。
 
 - 这个方法每个进程对象最多只能调用一次。它会将对象的 run() 方法安排在一个单独的进程中调用。
 
 **join([timeout])**
+
 - 如果可选参数 `timeout` 是 `None` (默认值)，则该方法将阻塞，直到调用 `join()` 方法的进程终止。如果 `timeout` 是一个正数，它最多会阻塞 `timeout` 秒。请注意，如果进程终止或方法超时，则该方法返回 `None`。检查进程的 `exitcode` 以确定它是否终止。
 
 - 一个进程可以被 `join` 多次。
@@ -256,86 +290,11 @@ AttributeError: 'module' object has no attribute 'f'
  >>> p.exitcode == -signal.SIGTERM
  True
 ```
-## 管道和队列
-使用多进程时，一般使用<font color="FF5733">消息机制</font>实现进程间通信，尽可能避免使用同步原语，例如锁。
-
-消息机制包含：`Pipe()` (可以用于2个进程间传递消息)，以及 **队列** （能够在多个生产者和消费者之间通信）
-
-如果你使用了 `JoinableQueue` ，那么你 **必须** 对每个已经移出队列的任务调用 `JoinableQueue.task_done()` 。不然的话用于统计未完成任务的信号量最终会溢出并抛出异常。
-
-另外还可以通过使用一个 **管理器** 对象创建一个共享队列。
-
-`queue` 示例
-
-```Python
-import threading, queue
-
-q = queue.Queue()
-
-def worker():
-    while True:
-        item = q.get()
-        print(f'Working on {item}')
-        print(f'Finished {item}')
-        q.task_done()
-
-# turn-on the worker thread
-threading.Thread(target=worker, daemon=True).start()
-
-# send ten task requests to the worker
-for item in range(10):
-    q.put(item)
-print('All task requests sent\n', end='')
-
-# block until all tasks are done
-q.join()
-print('All work completed')
-
-"""
-Output
-----------------------
-All task requests sent
-Working on 0
-Finished 0
-Working on 1
-Finished 1
-Working on 2
-Finished 2
-Working on 3
-Finished 3
-Working on 4
-Finished 4
-Working on 5
-Finished 5
-Working on 6
-Finished 6
-Working on 7
-Finished 7
-Working on 8
-Finished 8
-Working on 9
-Finished 9
-All work completed
-"""
-```
-
 # 杂项
-
-**multiprocessing.active_children()**
-- 返回当前进程存活的子进程的列表。
-- 调用该方法有“等待”已经结束的进程的副作用。
-
 **multiprocessing.cpu_count()**
+
 - 返回系统的CPU数量
 - 该数量不同于当前进程可以使用的CPU数量.可用的CPU数量可以由 `len(os.sched_getaffinity(0))` 方法获得。
-
-
-**multiprocessing.current_process()**
-- 返回与当前进程相对应的 Process 对象。
-- 和 threading.current_thread() 相同。
-
-**multiprocessing.parent_process()**
-- 返回父进程 `Process` 对象，和父进程调用 `current_process()` 返回的对象一样。如果一个进程已经是主进程，`parent_process` 会返回 `None`.(3.8 新版功能.)
 
 **multiprocessing.freeze_support()**
 - 为使用了 multiprocessing  的程序，提供冻结以产生 Windows 可执行文件的支持。(在 **py2exe**, **PyInstaller** 和 **cx_Freeze** 上测试通过)
@@ -355,13 +314,448 @@ if __name__ == '__main__':
 
 对 freeze_support() 的调用在非 Windows 平台上是无效的。如果该模块在 Windows 平台的 Python 解释器中正常运行 (该程序没有被冻结)， 调用`freeze_support()` 也是无效的。
 
+# 非常有用的例子(***)
 
-## 共享 ctypes 对象
+## pool.apply_async + for loop 部分
 
-## 管理器
+### 例 1: get 前置 导致 同步 (一般我们想要避免这种情况)
 
-## 进程池
+```Python
+import multiprocessing as mp
+import time
+import datetime
 
-## 监听器及客户端
+def add_item(k):
+    list_ = []
+    for i in range(k):
+        list_.append(k)
+    cc = time.time()
+    value = datetime.datetime.fromtimestamp(cc).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+    list_.append(value)
+    print("done at", value)
+    # we use time.sleep() to help us figure out whether tasks are really executed at the same time
+    time.sleep(1)
+    return list_
 
-# 例子
+a_list = []
+
+if __name__ == "__main__":
+    a_list = []
+    with mp.Pool(3) as pool:
+        for i in range(1,4):
+            a_list.append((pool.apply_async(add_item, (i,) )).get())
+            
+    		print(a_list)
+    
+# output
+"""
+done at 2020-09-25 15:40:54
+
+done at 2020-09-25 15:40:55
+
+done at 2020-09-25 15:40:56
+
+[[1, '2020-09-25 15:40:54\n'], [2, 2, '2020-09-25 15:40:55\n'], [3, 3, 3, '2020-09-25 15:40:56\n']]
+"""
+```
+
+通过上面例子，我们可以从输出时间发现，这个时候加入list的是它的时间戳，而在`for loop` 中，下一个任务是等待上一个任务结束才开始执行的。
+
+
+
+### 例2: get 后置 则为异步 （我们想要的）
+
+```python
+import multiprocessing as mp
+import time
+import datetime
+
+def add_item(k):
+    list_ = []
+    for i in range(k):
+        list_.append(k)
+    cc = time.time()
+    value = datetime.datetime.fromtimestamp(cc).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+    list_.append(value)
+    print("done at", value)
+    time.sleep(1)
+    return list_
+
+a_list = []
+
+if __name__ == "__main__":
+    a_list = []
+    with mp.Pool(4) as pool:
+        for i in range(1,7):
+            a_list.append((pool.apply_async(add_item, (i,) )))
+        
+        print([r.get(timeout=2) for r in a_list])
+        
+# output
+"""
+done atdone atdone at done at  2020-09-25 17:34:16
+2020-09-25 17:34:16
+ 2020-09-25 17:34:16
+
+2020-09-25 17:34:16
+
+
+
+done atdone at  2020-09-25 17:34:17
+2020-09-25 17:34:17
+
+
+[[1, '2020-09-25 17:34:16\n'], [2, 2, '2020-09-25 17:34:16\n'], [3, 3, 3, '2020-09-25 17:34:16\n'], [4, 4, 4, 4, '2020-09-25 17:34:16\n'], [5, 5, 5, 5, 5, '2020-09-25 17:34:17\n'], [6, 6, 6, 6, 6, 6, '2020-09-25 17:34:17\n']]
+"""
+```
+
+从例2我们看到，3个 `done at` 一起输出，而且 时间戳也一样，这说明大家都是 **一起跑的**，也就是异步。
+
+<font color=#FA8282, size=4> 此时需要注意，我们的 `get()` 操作一定要在 pool里面执行，否则就会出现一只等待的情况，如果设置 .get(timeout=2)的话，就会报出 Timeout Error. </font>
+
+
+
+### 例 2.5 
+
+```python
+def add_item(k):
+    list_ = []
+    for i in range(k):
+        list_.append(k)
+    cc = time.time()
+    value = datetime.datetime.fromtimestamp(cc).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+    list_.append(value)
+    print("done at", value)
+    time.sleep(1)
+    return list_
+
+a_list = []
+
+if __name__ == "__main__":
+    a_list = []
+    with mp.Pool(4) as pool:
+        for i in range(1,7):
+            a_list.append((pool.apply_async(add_item, (i,) )))
+        pool.close()
+        pool.join()
+    print([r.get(timeout=2) for r in a_list])
+    
+# output
+
+"""
+done atdone atdone atdone at   2020-09-25 17:34:19
+2020-09-25 17:34:19
+ 2020-09-25 17:34:19
+
+
+
+2020-09-25 17:34:19
+
+done atdone at  2020-09-25 17:34:20
+2020-09-25 17:34:20
+
+
+[[1, '2020-09-25 17:34:19\n'], [2, 2, '2020-09-25 17:34:19\n'], [3, 3, 3, '2020-09-25 17:34:19\n'], [4, 4, 4, 4, '2020-09-25 17:34:19\n'], [5, 5, 5, 5, 5, '2020-09-25 17:34:20\n'], [6, 6, 6, 6, 6, 6, '2020-09-25 17:34:20\n']]
+"""
+```
+
+相比于 例2， 我们多加了两行: `pool.close(); pool.join()` 但是我们发现结果并没改变。 **这说明在改变非共享变量时，在get()的过程中，程序会自动等待进城池运行结束， 不信的可以调大 range试试**
+
+
+
+### 例 3 基本操作
+
+```python
+from  multiprocessing import Process,Pool
+import os, time, random
+
+def fun1(name):
+    print('Run task %s (%s)...' % (name, os.getpid()))
+    start = time.time()
+    time.sleep(random.random() * 3)
+    end = time.time()
+    print('Task %s runs %0.2f seconds.' % (name, (end - start)))
+
+if __name__=='__main__':
+    pool = Pool(5) #创建一个5个进程的进程池
+
+    for i in range(10):
+        pool.apply_async(func=fun1, args=(i,))
+
+    pool.close()
+    pool.join()
+    print('结束测试')
+    
+    
+# output:
+"""
+Run task 2 (52176)...Run task 1 (52175)...Run task 3 (52177)...Run task 0 (52174)...
+
+
+Run task 4 (52178)...
+
+Task 2 runs 0.47 seconds.
+Run task 5 (52176)...
+Task 1 runs 1.26 seconds.
+Run task 6 (52175)...
+Task 4 runs 1.28 seconds.
+Run task 7 (52178)...
+Task 6 runs 0.37 seconds.
+Run task 8 (52175)...
+Task 0 runs 2.06 seconds.
+Run task 9 (52174)...
+Task 5 runs 1.74 seconds.
+Task 8 runs 0.76 seconds.
+Task 7 runs 1.34 seconds.
+Task 3 runs 2.77 seconds.
+Task 9 runs 2.03 seconds.
+结束测试
+"""
+```
+
+**对`Pool`对象调用`join()`方法会等待所有子进程执行完毕，调用`join()`之前必须先调用`close()`，调用`close()`之后就不能继续添加新的`Process`了。**
+
+### 例 4， 在pool 中 共享内存 
+
+```python
+from multiprocessing import Process, Manager
+
+
+def fun1(dic,lis,index):
+
+    dic[index] = 'a'
+    dic['2'] = 'b'    
+    cc = time.time()
+    value1 = datetime.datetime.fromtimestamp(cc).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+    lis.append((index,value1))    #[0,1,2,3,4,0,1,2,3,4,5,6,7,8,9]
+    time.sleep(1)
+
+# case 1
+if __name__ == '__main__':
+    with Manager() as manager:
+        dic = manager.dict()#注意字典的声明方式，不能直接通过{}来定义
+        l = manager.list(range(5))#[0,1,2,3,4]
+        with mp.Pool(5) as pool:
+            for i in range(10):
+                pool.apply_async(fun1, (dic,l,i))                
+            print("0",dic)
+            print()
+            print(l)
+    
+        print("1", dic)
+    print("2", dic)
+
+# output
+"""
+0 {}
+
+[0, 1, 2, 3, 4]
+1 {2: 'a', '2': 'b', 0: 'a', 3: 'a', 1: 'a'}
+2 <DictProxy object, typeid 'dict' at 0x7fc03da30190; '__str__()' failed>
+"""
+
+#############################################      split line        #############################################
+
+# case 2
+if __name__ == '__main__':
+    with Manager() as manager:
+        dic = manager.dict()#注意字典的声明方式，不能直接通过{}来定义
+        l = manager.list(range(5))#[0,1,2,3,4]
+        with mp.Pool(5) as pool:
+            for i in range(10):
+                pool.apply_async(fun1, (dic,l,i))                
+            print("#",dic)
+            print()
+            print("#",l)
+            a = time.time()
+            pool.close()
+            pool.join()
+            b = time.time()
+            print()
+            print(f"it take {a-b} seconds to finish")
+            print()
+            print("###",l)
+            print()
+            print("###",dic)
+# output
+
+"""
+# {}
+
+# [0, 1, 2, 3, 4]
+
+it take -2.058048963546753 seconds to finish
+
+### [0, 1, 2, 3, 4, (1, '2020-09-25 17:22:38\n'), (0, '2020-09-25 17:22:38\n'), (2, '2020-09-25 17:22:38\n'), (3, '2020-09-25 17:22:38\n'), (4, '2020-09-25 17:22:38\n'), (5, '2020-09-25 17:22:39\n'), (6, '2020-09-25 17:22:39\n'), (7, '2020-09-25 17:22:39\n'), (8, '2020-09-25 17:22:39\n'), (9, '2020-09-25 17:22:39\n')]
+
+### {1: 'a', '2': 'b', 0: 'a', 3: 'a', 2: 'a', 4: 'a', 5: 'a', 6: 'a', 7: 'a', 8: 'a', 9: 'a'}
+"""
+
+#############################################      split line        #############################################
+
+
+# case 3
+
+if __name__ == '__main__':
+    with Manager() as manager:
+        dic = manager.dict()#注意字典的声明方式，不能直接通过{}来定义
+        l = manager.list(range(5))#[0,1,2,3,4]
+        with mp.Pool(5) as pool:
+            for i in range(10):
+                pool.apply_async(fun1, (dic,l,i))                
+            pool.close()
+            pool.join()
+            
+        print(dic)
+        print(l)
+```
+
+通过例4 我们可以发现
+
+- 调用共享变量结果的时候必须在 With Manager 内部
+- 调用 共享变量结果 时，必须使用 pool.close(), pool.join() 去等待所有运行结果
+
+## Process 部分
+
+### 例 1: Process 的 基本理解
+
+```Python
+from multiprocessing import  Process
+import os
+
+def fun1(name):
+    cc = time.time()
+    value = datetime.datetime.fromtimestamp(cc).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+    pid = str(os.getpid())
+    print("测试多进程:"+value+" os pid: "+pid)
+    time.sleep(5)
+    cc = time.time()
+    value = datetime.datetime.fromtimestamp(cc).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+    print("测试结束: ", value)
+
+
+if __name__ == '__main__':
+    process_list = []
+    for i in range(5):  #开启5个子进程执行fun1函数
+        p = Process(target=fun1,args=('Python',)) #实例化进程对象
+        p.start()
+        process_list.append(p)
+
+    time.sleep(1)
+    cc = time.time()
+    value1 = datetime.datetime.fromtimestamp(cc).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+    
+    for i in process_list:
+        p.join()
+        
+    cc = time.time()
+    value2 = datetime.datetime.fromtimestamp(cc).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+
+    print('结束测试:',value1, value2)
+
+# Output
+"""
+测试多进程:2020-09-25 16:42:23
+ os pid: 51895
+测试多进程:2020-09-25 16:42:23
+ os pid: 51896
+测试多进程:2020-09-25 16:42:23
+ os pid: 51897
+测试多进程:2020-09-25 16:42:23
+ os pid: 51898
+测试多进程:2020-09-25 16:42:23
+ os pid: 51899
+测试结束:  测试结束: 2020-09-25 16:42:28
+
+ 2020-09-25 16:42:28
+测试结束: 
+ 2020-09-25 16:42:28
+测试结束: 
+ 2020-09-25 16:42:28
+测试结束: 
+ 2020-09-25 16:42:28
+
+结束测试: 2020-09-25 16:42:24
+ 2020-09-25 16:42:28
+"""
+
+```
+
+注意：
+
+1. process方法也是通过异步方式运行的。不过有一个 p.start() 和 p.join() 的操作
+2. 程序在 `start()` 的时候运行的
+3. 通过观察value1，我们可以发现在 `start()` 程序运行的时候，内部子进程可以继续运行而不影响 for loop 的结束。故 value1 的时间会比 "测试结束" 的时间要早。而 join() 则是一个个关闭进程，这时候要保证进程已经运行完毕，所以该时刻取到的时间是程序都运行结束的时间。
+
+
+
+### 例 2 共享内存 (共同修改一份数据)
+
+```python
+from multiprocessing import Process, Manager
+
+def fun1(dic,lis,index):
+
+    dic[index] = 'a'
+    dic['2'] = 'b'    
+    cc = time.time()
+    value1 = datetime.datetime.fromtimestamp(cc).strftime('%Y-%m-%d %H:%M:%S') + "\n"
+    lis.append((index,value1))    #[0,1,2,3,4,0,1,2,3,4,5,6,7,8,9]
+    time.sleep(1)
+
+if __name__ == '__main__':
+    with Manager() as manager:
+        dic = manager.dict()#注意字典的声明方式，不能直接通过{}来定义
+        l = manager.list(range(5))#[0,1,2,3,4]
+
+        process_list = []
+        for i in range(10):
+            p = Process(target=fun1, args=(dic,l,i))
+            p.start()
+            process_list.append(p)
+
+        for res in process_list:
+            res.join()
+        print(dic)
+        print()
+        print(l)
+        
+# output
+"""
+{0: 'a', '2': 'b', 1: 'a', 2: 'a', 3: 'a', 4: 'a', 5: 'a', 6: 'a', 7: 'a', 8: 'a', 9: 'a'}
+
+[0, 1, 2, 3, 4, (0, '2020-09-25 16:59:44\n'), (1, '2020-09-25 16:59:44\n'), (2, '2020-09-25 16:59:44\n'), (3, '2020-09-25 16:59:44\n'), (4, '2020-09-25 16:59:44\n'), (5, '2020-09-25 16:59:44\n'), (6, '2020-09-25 16:59:44\n'), (7, '2020-09-25 16:59:44\n'), (8, '2020-09-25 16:59:44\n'), (9, '2020-09-25 16:59:44\n')]
+"""
+```
+
+通过例2 我们可以看到，修改同一份数据是同时进行的
+
+
+
+# 总结（***）
+
+我们可以通过 Process 或者 进程池 Pool 的方式来进行 并行异步的编程。而这个时候如果存在共享变量，且子函数内部就要修改共享变量时，必须用 pool.close() + pool.join() 去 获得正确结果。但是如果我们是在子函数外部的话，就不用。不过为了简单记忆，我们都记得去用 这两个命令准没错。
+
+对于 Process， 也有相应的 p.start()   p.join() 去开始和结束进程
+
+# References
+
+[正确使用Multiprocessing的姿势](https://jingsam.github.io/2015/12/31/multiprocessing.html)
+
+[一篇文章搞定Python多进程](https://juejin.im/post/6844903838000873485)
+
+[廖雪峰 Python教程](https://www.liaoxuefeng.com/wiki/1016959663602400/1017627212385376)
+
+
+
+
+
+# Pandas 中应用并行(parallel)的方法
+
+## 1. pandarallel library (support Linux, macOS)
+[运用这个库](https://github.com/nalepae/pandarallel)
+
+## 2. manually do the parallism
+
+[参考这篇博文，也是通过 Process方法实现的，很机智](https://blog.fangzhou.me/posts/20170702-python-parallelism/)
+
